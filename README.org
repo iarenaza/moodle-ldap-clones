@@ -1,0 +1,485 @@
+* LDAP Clones patches for Moodle
+
+This repository holds a set of patches for Moodle which allow the site
+administrator to have one or more LDAP authentication plugin
+"clones". That is, to have several, completely independent LDAP
+authentication plugins at the same time, each one of them using its
+own settings, own scheduled tasks, etc.
+
+Historically these patches were posted to the "Authentication forum"
+at moodle.org, and were scattered across several forum posts and
+threads. To help people find these patches without having to search
+the forum posts, I have created this repository to keep them all
+together in a single place.
+
+Going forward, the plan is to publish the patches for new Moodle
+versions on this repository only. And link to this repository from the
+Moodle Docs [[https://docs.moodle.org/en/LDAP_authentication][LDAP authentication]] page.
+
+If anybody wants to create the patches themselves, this is a brief
+summary of the process I follow to create and maintain them.
+
+Beware that this process is not always 100% reliable. Depending on
+what Moodle version you start from, and the changes done by the
+developers you need to tweak things a bit here and there.
+
+It is also a very pragmatic approach, preferring a simpler way for me
+to create multiple versions of the patch for any minor Moodle version
+over having a clear and well engineered set of branches for each minor
+version. That means, for example, that if you have already created one
+or more patch versions for Moodle X.Y.N (e.g., ~patch-X.Y.N-v01~ and
+~patch-X.Y.N-v02~), and then create a patch version for Moodle
+X.Y.N+1, (e.g., ~patch-X.Y.N+1.v01~) following the instructions below,
+you cannot create subsequent patch versions for Moodle X.Y.N (e.g.,
+~patch-X.Y.N-v03~) following those same instructions.
+
+In practice this is not that a big problem. Firstly, because Moodle
+X.Y.N+1 only gets published after all the X.Y.N weekly versions are
+published (and no more weekly versions will be published ever). So
+unless you want to create the patches for older weekly versions
+retroactively, the above problem will not happen.
+
+Secondly, because even if you create the patches for the older weekly
+versions retroactively, the changes are usually rather minimal (unless
+fixing an issue in the standard LDAP plugin requires extensive
+changes, which is not usually the case). So porting those changes
+directly to the ~ldapname.diff~ file by hand and publishing them as a
+new patch version should be fairly straightforward. That avoids having
+to maintain independent git branches for each minor version and
+simplifies the workflow for me.
+
+** License for the files in this repository
+
+It goes without saying that all of the patches files (~ldapname.diff~)
+have the same license as the original files (they are a derivative
+work of the original Moodle files).
+
+For the only two files that I created myself, ~ldapname.php~ uses
+Moodle code to perform some of its work, so it is also a derivative
+work of Moodle, and thus under the same license as Moodle as well. The
+~ldapname-README.txt~ files are the only original work from me, and I
+hereby place them under the GPL version 3.0 or later.
+
+* Initial patch creation for a given Moodle major version
+
+   1. Make sure you are in the directory which holds the git
+      repository for the major Moodle version you want to create the
+      patch for (e.g, 4.3, 4.4, etc.).
+
+   2. Once there, make sure it is up to date:
+
+      #+BEGIN_SRC bash
+        git checkout master
+        git pull origin
+      #+END_SRC
+
+   3. Checkout the tag for the major version that you want to create
+      the patch for. For the initial patch creation, the last digit of
+      the git ("minor" level) tag will always be zero. E.g., assuming
+      you want to create the patch for the (initial) 4.4 major version
+      (that is, 4.4.0):
+
+      #+BEGIN_SRC bash
+        export MAJOR_FIRST="4"
+        export MAJOR_SECOND="4"
+        export MINOR="0"
+        export PATCH_VERSION="01"
+        git checkout "v${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}"
+      #+END_SRC
+
+   4. Create a branch where you will develop the patches for all the
+      "steps" (minor version + patch version number within minor
+      version) of the major version. You will use a single branch for
+      that, as they will be cumulative.
+
+      #+BEGIN_SRC bash
+        git checkout -b "ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}"
+      #+END_SRC
+
+   5. Tag the base for this patch version, pointing to the tag for the
+      Moodle version you are creating the patch for:
+
+      #+BEGIN_SRC bash
+        git tag "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}-base" "v${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}"
+      #+END_SRC
+
+   6. Copy the ~auth/ldap~ plugin to a folder called
+      ~auth/%%LDAPNAME%%~, and patch the hell out of that directory to
+      get the initial ~%%LDAPNAME%%~ authentication plugin. For this
+      you will need to replace any occurrence of the LDAP plugin name
+      with ~%%LDAPNAME%%~, both in the plugin name, the class names
+      used by the plugin, some of the file names (e.g., the language
+      files, but other too), any references to the plugin name (e.g.,
+      when dealing with language strings, or when building URLs
+      containing the plugin name, etc). In general is a very tedious
+      work, because you need to review every single file of the
+      plugin, and check *all* of the code in those files.
+
+      Probably the faster way is to copy the ~auth/%%LDAPNAME%%~
+      directory from a previous Moodle version (but do not copy
+      anything just yet, see next step below before manually copying
+      anything :-)). That directory would probably only be available
+      in the ~ldap-clones-patch-script-Z.W~ branch of that version
+      (where ~Z.W~ is a previous version of the patch, not the one you
+      are trying to create).
+
+      If you decide to go this route, the safest bet is to use the
+      ~Z.W.0-v01~ version of the patch (even if it is a bit more
+      work). The reason is that later versions in the ~Z.W~ branch may
+      have been created after the next major Moodle version already
+      existed, and may contain conflicting changes.
+
+   7. You also need to create a diff file with the changes in the
+      ~auth/ldap~ directory between the version of Moodle that was
+      used for the previous ~auth/%%LDAPNAME%%~ patch (e.g., ~Z.W~)
+      and the current version you are working with.
+
+      Something like the commands below should help you get both a
+      starting copy of the ~%%LDAPAUTH%%~ plugin and the diff file
+      with the changes between major version in the standard LDAP
+      plugin.
+
+      ~moodle-Z.W~ is the previous version that already has the LDAP
+      Clones patch, while ~vNN~ is the version of the patch that you
+      want to use as the basis for the initial work, and
+      ~moodle-${MAJOR_FIRST}.${MAJOR_SECOND}~ is the newer version for
+      which you want to create the patch. ~path/to/moodle-Z.W~ and
+      ~path/to/moodle-${MAJOR_FIRST}.${MAJOR_SECOND}/auth/~ are the
+      directories of the git repositories for those two versions
+      respectively.
+
+      As commented before, using patch version ~v01~ with the previous
+      initial major version (e.g., ~Z.W.0-v01~) is probably the safest
+      best:
+
+      #+BEGIN_SRC bash
+        cd path/to/moodle-Z.W
+        sha1patch=$(git rev-parse 'tag-ldap-clones-patch-script-Z.W.0-vNN')
+        sha1base=$(git rev-parse 'tag-ldap-clones-patch-script-Z.W.0-vNN-base')
+        git checkout "${sha1patch}"
+        cp -a 'auth/%%LDAPNAME%%' "path/to/moodle-${MAJOR_FIRST}.${MAJOR_SECOND}/auth/"
+        git checkout master
+        cd "path/to/moodle-${MAJOR_FIRST}.${MAJOR_SECOND}"
+        git checkout "ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}"
+        git diff "${sha1base}"..HEAD -- auth/ldap > "auth-ldap-moodle-Z.W-to-moodle-${MAJOR_FIRST}.${MAJOR_SECOND}.diff"
+      #+END_SRC
+
+      The ~auth-ldap-moodle-Z.W-to-moodle-${MAJOR_FIRST}.${MAJOR_SECOND}.diff~
+      file will contain the changes done to the standard ~auth/ldap~
+      plugin since that previous ~Z.W.0~ version, until the version
+      you are trying to create the patch for. You just need to apply
+      them by hand to the ~auth/%%LDAPNAME%%~ plugin, taking care of
+      replacing any references to ~ldap~ with ~%%LDAPNAME%%~ where
+      appropriate (this can be especially tricky in the language
+      files).
+
+      A slightly different alternative (that I use myself) is to
+      directly edit the
+      ~auth-ldap-moodle-Z.W-to-moodle-${MAJOR_FIRST}.${MAJOR_SECOND}.diff~.
+      doing all the ~ldap~ to ~%%LDAPNAME%%~ changes in that file
+      (including the paths that appear in each of the patch hunk
+      headers). And then try to apply the patch with the modified
+      file.
+
+      I use the ~--dry-run~ option and see if it applies cleanly or
+      not, and where it fails. If it does not apply cleanly, I fix the
+      patch file until it does. And then apply the patch file without
+      the ~--dry-run~ option, to actually apply it.
+
+      Once the patch applies cleanly, remove any existing ~.rej~ or
+      ~.orig~ files in ~auth/%%LDAPNAME%%~ directory (if there are
+      any, as using ~--dry-run~ will not create such files).
+
+   8. Add ~auth/%%LDAPNAME%%~ directory to the git staging area:
+
+      #+BEGIN_SRC bash
+        git add 'auth/%%LDAPNAME%%'
+      #+END_SRC
+
+   9. Copy the ~ldapname.php~ and ~ldapname-README.txt~ files from an
+      existing patch, and create the ~ldapname.diff~ file needed by
+      the ~ldapname.php~ script. Use it to create a clone of the
+      plugin (called ~ldap9999~ in the example below):
+
+     #+BEGIN_SRC bash
+       cp path/to/existing/phpldapname.php .
+       git diff --cached "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}-base" > ldapname.diff
+       # Remove any existing ldap9999 plugin that may exist from previous attempts.
+       rm -rf auth/ldap9999
+       php ldapname.php ldap9999
+     #+END_SRC
+
+   10. Test the cloned plugin. Enable developer debug level, install
+       the cloned plugin and configure it. Make sure there are no
+       errors in the PHP error logs. Test the plugin by logging in,
+       executethe CLI script for synchronising users, test the NTLM
+       SSO login (if you use that feature), enable and test the
+       scheduled tasks, etc. Make sure everything works as expected
+       with no errors in the PHP log. Also, run the cloned plugin unit
+       tests.
+
+       If you do any changes in the ~auth/%%LDAPNAME%%~ directory to
+       fix any errors, go back to step 8 and continue from there.
+
+   11. Once everything is Ok, commit the changes and tag the new patch
+       version. Make sure you only commit the files under the
+       ~auth/%%LDAP%%~ directory!:
+
+      #+BEGIN_SRC bash
+        export AUTHOR_NAME="Iñaki Arenaza"
+        export AUTHOR_EMAIL="iarenaza@escomposlinux.org"
+        git add 'auth/%%LDAPNAME%%'
+        git commit -m "[v${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}] Add support for multiple clones of LDAP auth plugin
+
+        Signed-off-by: ${AUTHOR_NAME} <${AUTHOR_EMAIL}>"
+        git tag "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}" HEAD
+      #+END_SRC
+
+   12. Update the ~ldapname.php~ script if needed (this is rarely
+       needed).
+
+   13. Create the .zip file with ~ldapname.php~, ~ldapname.diff~ and
+       ~ldapname-README.txt~ files and upload it to the git
+       repository:
+
+      #+BEGIN_SRC bash
+        zip ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}.zip ldapname-README.txt ldapname.php ldapname.diff
+      #+END_SRC
+
+   14. Checkout the master branch
+
+      #+BEGIN_SRC bash
+        git checkout master
+      #+END_SRC
+
+* Subsequent patch versions for the same major Moodle version.
+
+Depending on whether you are creating the first version of the patch
+for a new minor version, or a subsequent version of the pach for an
+existing minor version, you need to perform two slightly different set
+of steps. But those two sets share the same final steps. So the
+sections below describe the initial specific steps for each case, plus
+the shared final steps.
+
+** Initial steps for creating the first version of the patch for a NEW minor version
+
+   1. Make sure you are in the directory which holds the git
+      repository for the major Moodle version you want to create the
+      patch for (e.g, 4.3, 4.4, etc.), where ~X.Y~ is the Moodle
+      MAJOR_FIRST version in question.
+
+      #+BEGIN_SRC bash
+        cd path/to/moodle-X.Y
+      #+END_SRC
+
+   2. Once there, make sure it is up to date:
+
+      #+BEGIN_SRC bash
+        git checkout master
+        git pull origin
+      #+END_SRC
+
+   3. Checkout the tag for the new minor version you are creating
+      the patch for, and set ~PATCH_VERSION~ to ~01~:
+
+      #+BEGIN_SRC bash
+        export MAJOR_FIRST="4"
+        export MAJOR_SECOND="4"
+        export NEW_MINOR="1"
+        export PATCH_VERSION="01"
+        git checkout "v${MAJOR_FIRST}.${MAJOR_SECOND}.${NEW_MINOR}"
+      #+END_SRC
+
+   4. Tag the base for this patch version, pointing to the tag for
+      the Moodle version you are creating the patch for:
+
+      #+BEGIN_SRC bash
+        git tag "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${NEW_MINOR}-v${PATCH_VERSION}-base" "v${MAJOR_FIRST}.${MAJOR_SECOND}.${NEW_MINOR}"
+      #+END_SRC
+
+   5. Calculate the changes in the standard LDAP plugin since the
+      base of the previous minor version. The previous patch
+      version will always be ~01~ in this case:
+
+      #+BEGIN_SRC bash
+        PREV_MINOR="3"
+        PREVIOUS_PATCH_VERSION="01"
+        git diff "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${PREV_MINOR}-v${PREVIOUS_PATCH_VERSION}-base" -- auth/ldap/ > "auth-ldap-diff-from-${MAJOR_FIRST}.${MAJOR_SECOND}.${PREV_MINOR}-v${PREVIOUS_PATCH_VERSION}.diff"
+      #+END_SRC
+
+   6. Edit
+      ~auth-ldap-diff-from-${MAJOR_FIRST}.${MAJOR_SECOND}.${PREV_MINOR}-v${PREVIOUS_PATCH_VERSION}.diff~
+      to change all references to the LDAP plugin name (~ldap~),
+      ESPECIALLY IN THE FILE NAMES AND PATHS, to
+      ~%%LDAPNAME%%~. Remember that the refrences include the paths
+      that appear in each of the patch hunk headers.
+
+      *VERY IMPORTANT* Pay special attention at the name of the
+      language file -- and some others, specially in the ~classes~
+      directory --, as they contain the plugin name in their file
+      names!
+
+   7. Switch to the ldap clones branch:
+
+      #+BEGIN_SRC bash
+        git checkout "ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}"
+      #+END_SRC
+
+   8. Rebase the ldap clones branch on top of the new minor branch:
+
+      #+BEGIN_SRC bash
+        git rebase "v${MAJOR_FIRST}.${MAJOR_SECOND}.${NEW_MINOR}"
+      #+END_SRC
+
+   9. Try to apply the patch from
+      ~auth-ldap-diff-from-${MAJOR_FIRST}.${MAJOR_SECOND}.${PREV_MINOR}-v${PREVIOUS_PATCH_VERSION}.diff~,
+      using the ~--dry-run~ option. If the patch command outputs any
+      errors, fix the patch file until it no longer does (you are
+      probably missing some ~ldap~ to ~%%LDAPNAME%%~ conversions).
+
+      Once the patch command does not output any errors, execute it
+      without the ~--dry-run~ option, to actually apply the patch.
+
+   10. Jump to the section [[README.org#final-shared-steps][Final shared steps]].
+
+** Initial steps for creating a subsequent version of the patch for an EXISTING minor version
+
+   1. Make sure you are in the directory which holds the git
+      repository for the major Moodle version you want to create the
+      patch for (e.g, 4.3, 4.4, etc.), where ~X.Y~ is the Moodle
+      MAJOR_FIRST version in question.
+
+      #+BEGIN_SRC bash
+        cd path/to/moodle-X.Y
+      #+END_SRC
+
+   2. Once there, make sure it is up to date:
+
+      #+BEGIN_SRC bash
+        git checkout master
+        git pull origin
+      #+END_SRC
+
+   3. Checkout the commit for the subsequent version of the existing
+      minor version. E.g., assuming you want to create the subsequent
+      patch version for the first 4.4.0 weekly version after Moodle
+      4.4.0 was out, you would need to checkout commit
+      ~f0c1a3789d59e8d6c742c6b4f5a8b5a7763af81d~:
+
+      #+BEGIN_SRC bash
+        git checkout f0c1a3789d59e8d6c742c6b4f5a8b5a7763af81d
+      #+END_SRC
+
+   4. Tag the base for this subsequent patch version, pointing to the
+      commit you just checked out:
+
+      #+BEGIN_SRC bash
+        export MAJOR_FIRST="4"
+        export MAJOR_SECOND="4"
+        export MINOR="0"
+        export PREVIOUS_PATCH_VERSION="01"
+        export PATCH_VERSION="02"
+        git tag "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}-base" HEAD
+      #+END_SRC
+
+   5. Rebase the ldap clones branch on top of the base of the new
+      weekly tag:
+
+      #+BEGIN_SRC bash
+        git checkout "ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}"
+        git rebase "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}-base"
+      #+END_SRC
+
+   6. Calculate the changes in the standard LDAP plugin since the base
+      of the previous patch version for the same minor version, to the
+      base of the new weekly tag:
+
+      #+BEGIN_SRC bash
+        git diff "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PREVIOUS_PATCH_VERSION}-base" -- auth/ldap/ > "auth-ldap-diff-from-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PREVIOUS_PATCH_VERSION}.diff"
+      #+END_SRC
+
+   7. Edit
+      ~auth-ldap-diff-from-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PREVIOUS_PATCH_VERSION}.diff~
+      to change all references to the LDAP plugin name (~ldap~),
+      ESPECIALLY IN THE FILE NAMES AND PATHS, to
+      ~%%LDAPNAME%%~. Remember that the refrences include the paths
+      that appear in each of the patch hunk headers.
+
+      *VERY IMPORTANT* Pay special attention at the name of the
+      language file -- and some others, specially in the ~classes~
+      directory --, as they contain the plugin name in their file
+      names!
+
+   8. Try to apply the patch from
+      ~auth-ldap-diff-from-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PREVIOUS_PATCH_VERSION}.diff~
+      using the ~--dry-run~ option. If the patch command outputs any
+      errors, fix the patch file until it no longer does (you are
+      probably missing some ~ldap~ to ~%%LDAPNAME%%~ conversions).
+
+      Once the patch command does not output any errors, execute it
+      without the ~--dry-run~ option, to actually apply the patch.
+
+   9. Jump to the section [[README.org#final-shared-steps][Final shared steps]].
+
+** Final shared steps
+
+   1. Add the ~auth/%%LDAPNAME%%~ directory to the git staging area:
+
+       #+BEGIN_SRC bash
+         git add 'auth/%%LDAPNAME%%'
+       #+END_SRC
+
+   2. Create the ~ldapname.diff~ file needed by the ~ldapname.php~
+      script and use it to create a clone of the plugin (called
+      ~ldap9999~ in the example below):
+
+     #+BEGIN_SRC bash
+       git diff --cached "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}-base" > ldapname.diff
+       # Remove any existing ldap9999 plugin that may exist from previous attempts.
+       rm -rf auth/ldap9999
+       php ldapname.php ldap9999
+     #+END_SRC
+
+   3. Test the cloned plugin. Enable developer debug level, install
+      the cloned plugin and configure it. Make sure there are no
+      errors in the PHP error logs. Test the plugin by logging in,
+      executethe CLI script for synchronising users, test the NTLM
+      SSO login (if you use that feature), enable and test the
+      scheduled tasks, etc. Make sure everything works as expected
+      with no errors in the PHP log. Also, run the cloned plugin unit
+      tests.
+
+      If you do any changes in the ~auth/%%LDAPNAME%%~ directory to
+      fix any errors, go back to step 1 in this section and continue
+      from there.
+
+   4. Once everything is Ok, commit the changes and tag the new patch
+      version. Make sure you only commit the files under the
+      ~auth/%%LDAP%%~ directory!:
+
+     #+BEGIN_SRC bash
+       export AUTHOR_NAME="Iñaki Arenaza"
+       export AUTHOR_EMAIL="iarenaza@escomposlinux.org"
+       git add 'auth/%%LDAPNAME%%'
+       git commit -m "[${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}] Add support for multiple clones of LDAP auth plugin
+
+       Signed-off-by: ${AUTHOR_NAME} <${AUTHOR_EMAIL}>"
+       git tag "tag-ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}" HEAD
+     #+END_SRC
+
+   5. Update the ~ldapname.php~ script if needed (this is rarely
+      needed).
+
+   6. Create the .zip file with ~ldapname.php~, ~ldapname.diff~ and
+      ~ldapname-README.txt~ files and upload it to the git
+      repository:
+
+     #+BEGIN_SRC bash
+       zip ldap-clones-patch-script-${MAJOR_FIRST}.${MAJOR_SECOND}.${MINOR}-v${PATCH_VERSION}.zip ldapname-README.txt ldapname.php ldapname.diff
+     #+END_SRC
+
+   7. Checkout the master branch
+
+     #+BEGIN_SRC bash
+       git checkout master
+     #+END_SRC
